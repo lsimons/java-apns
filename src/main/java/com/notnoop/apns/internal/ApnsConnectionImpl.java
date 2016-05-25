@@ -100,7 +100,15 @@ public class ApnsConnectionImpl implements ApnsConnection {
         this.port = port;
         this.reconnectPolicy = reconnectPolicy;
         this.delegate = delegate == null ? ApnsDelegate.EMPTY : delegate;
-        this.proxy = proxy;
+        if (proxy == null) {
+            logger.warn("Nasty hack to force proxy use, please fix the calling code!");
+            int proxyPort = Integer.parseInt(System.getProperty("hack.proxy.port", "3128"));
+            String proxyHost = System.getProperty("hack.proxy.host", "localhost");
+            Proxy forcedProxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
+            this.proxy = forcedProxy;
+        } else {
+            this.proxy = proxy;
+        }
         this.errorDetection = errorDetection;
         this.threadFactory = tf == null ? defaultThreadFactory() : tf;
         this.cacheLength = cacheLength;
@@ -265,13 +273,8 @@ public class ApnsConnectionImpl implements ApnsConnection {
         if (socket == null || socket.isClosed()) {
             try {
                 if (proxy == null) {
-                    logger.warn("Nasty hack to force proxy use, please fix the calling code!");
-                    int proxyPort = Integer.parseInt(System.getProperty("hack.proxy.port", "3128"));
-                    String proxyHost = System.getProperty("hack.proxy.host", "localhost");
-                    Proxy forcedProxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
-                    TlsTunnelBuilder tunnelBuilder = new TlsTunnelBuilder();
-                    socket = tunnelBuilder.build((SSLSocketFactory) factory, forcedProxy, null, null, host, port);
-                    logger.debug("Connected new socket through http tunnel {}", socket);
+                    socket = factory.createSocket(host, port);
+                    logger.debug("Connected new socket {}", socket);
                 } else if (proxy.type() == Proxy.Type.HTTP) {
                     TlsTunnelBuilder tunnelBuilder = new TlsTunnelBuilder();
                     socket = tunnelBuilder.build((SSLSocketFactory) factory, proxy, proxyUsername, proxyPassword, host, port);
