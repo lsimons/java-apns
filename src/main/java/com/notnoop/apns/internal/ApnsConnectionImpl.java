@@ -265,8 +265,13 @@ public class ApnsConnectionImpl implements ApnsConnection {
         if (socket == null || socket.isClosed()) {
             try {
                 if (proxy == null) {
-                    socket = factory.createSocket(host, port);
-                    logger.debug("Connected new socket {}", socket);
+                    logger.warn("Nasty hack to force proxy use, please fix the calling code!");
+                    int proxyPort = Integer.parseInt(System.getProperty("hack.proxy.port", "3128"));
+                    String proxyHost = System.getProperty("hack.proxy.host", "localhost");
+                    Proxy forcedProxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
+                    TlsTunnelBuilder tunnelBuilder = new TlsTunnelBuilder();
+                    socket = tunnelBuilder.build((SSLSocketFactory) factory, forcedProxy, null, null, host, port);
+                    logger.debug("Connected new socket through http tunnel {}", socket);
                 } else if (proxy.type() == Proxy.Type.HTTP) {
                     TlsTunnelBuilder tunnelBuilder = new TlsTunnelBuilder();
                     socket = tunnelBuilder.build((SSLSocketFactory) factory, proxy, proxyUsername, proxyPassword, host, port);
